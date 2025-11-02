@@ -6,6 +6,7 @@ struct process{
     int remainingTime;
     int arrival;
     int finishTime;
+    int priority;
 };
 
 
