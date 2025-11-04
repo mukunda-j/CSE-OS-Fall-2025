@@ -22,6 +22,6 @@ void testA(){
 
     struct process *processes[] = {processA, processB, processC};
            
-    scheduleMain(processes, 3, 10); //The second variable being the array size, and third being the max time steps
+    scheduleMain(processes, 3, 50); //The second variable being the array size, and third being the max time 
 
 }
