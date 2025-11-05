@@ -12,9 +12,9 @@ void testA(){
     processB->remainingTime = 3;
     processC->remainingTime = 5;
 
-    processA->arrival = 0;
-    processB->arrival = 0;
-    processC->arrival = 0;
+    processA->arrivalTime = 0;
+    processB->arrivalTime = 0;
+    processC->arrivalTime = 0;
 
     processA->priority = 1;
     processB->priority = 3;
