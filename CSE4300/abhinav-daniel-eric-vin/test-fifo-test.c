@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "fifo-schedulemain.h"
+#include <string.h>
 
 int main(void) {
 
@@ -26,7 +27,17 @@ int main(void) {
     processA->priority = 3;
     processB->priority = 3;
     processC->priority = 3;
-    processD->priority = 4;
+    processD->priority = 3;
+
+    char pAname[] = "processA";
+    char pBname[] = "processB";
+    char pCname[] = "processC";
+    char pDname[] = "processD";
+
+    strcpy(processA->name, pAname);
+    strcpy(processB->name, pBname);
+    strcpy(processC->name, pCname);
+    strcpy(processD->name, pDname);
 
     struct process *processArray[] = {processA, processB, processC, processD};
 
