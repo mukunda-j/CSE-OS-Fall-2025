@@ -3,7 +3,7 @@
 
 
 struct process{
-    char name[7];
+    char name[8];
     int remainingTime;
     int arrivalTime;
     int finishTime;
