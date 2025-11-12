@@ -23,6 +23,7 @@ class MemoryManager {
     private:
         std::vector<pageTableEntry> pageTable;
         std::vector<uint8_t> physicalMemory;
+        std::vector<bool> freeFrames;
 
         int PAGE_SIZE; // 4096 bytes, 4K per page
         int PAGE_COUNT; // 1024 entries in the page table
@@ -31,6 +32,7 @@ class MemoryManager {
         void _initializeMemory() {
             pageTable.resize(PAGE_COUNT);
             physicalMemory.resize(PHYSICAL_SIZE);
+            freeFrames.resize(PHYSICAL_SIZE / PAGE_SIZE, true);
         }
 
         void writeMemory(int physicalAddress, uint8_t data) {
@@ -93,6 +95,36 @@ class MemoryManager {
             pageTable[virtualPageNumber].validBit = true;
             pageTable[virtualPageNumber].pageFrameNum = frameNumber;
             pageTable[virtualPageNumber].presentBit = true;
+
+            freeFrames[frameNumber] = false;
+        }
+
+        // returns virtual memory address
+        int allocateAnyPage() {
+            // find open page entry
+            int vpn = -1;
+            for (int i = 0; i < PAGE_COUNT; i++) {
+                if (pageTable[i].validBit != true) {
+                    vpn = i;
+                    break;
+                }
+            }
+            if (vpn == -1) throw "No free pages!";
+
+            // find open frame using our map of them :P
+            int freeFrame = -1;
+            for (int i = 0; i < freeFrames.size(); i++) {
+                if (freeFrames[i]) {
+                    freeFrame = i;
+                    break;
+                }
+            }
+            if (freeFrame == -1) throw "No free physical frames!";
+
+            allocatePage(vpn, freeFrame);
+
+            int virtualAddress = vpn * PAGE_SIZE;
+            return virtualAddress;
         }
 
         void writeVirtualMemory (int virtualAddress, uint8_t data) {
@@ -124,30 +156,42 @@ class MemoryManager {
 };
 
 int main() {
-    MemoryManager mm;
+    try {
+        MemoryManager mm;
 
-    mm.allocatePage(0, 69);
+        for (int i = 0; i < 512; i++) mm.allocatePage(i, i);
 
-    int virtualAddress = 0x0000;
+        int virtualAddress = mm.allocateAnyPage();
 
-    for (int i = 0; i < 4096; i++) {
-        uint8_t data = i % 256;
-        mm.writeVirtualMemory(virtualAddress + i, data);
+        for (int i = 513; i < 569; i++) mm.allocatePage(i, i);
+
+        int testAddr = mm.allocateAnyPage();
+
+        std::cout << std::showbase << std::hex << "Allocated page for future tests: " << virtualAddress << std::endl;
+        std::cout << "Allocated page to see if any page really works: " << testAddr << std::endl << "- - -" << std::endl << std::endl;
+
+        for (int i = 0; i < 4096; i++) {
+            uint8_t data = i % 256;
+            mm.writeVirtualMemory(virtualAddress + i, data);
+        }
+
+        int bloop[5] = {0x0485, 0x0089, 0x0a5f, 0x076e, 0x0f80};
+
+        for (auto random : bloop) {
+            int addr = random + virtualAddress;
+            std::cout << std::showbase << std::hex;
+            std::cout << "Page Table Entry for Virtual Address " << addr << ": " << std::endl;
+            mm.printPageTableEntry(addr / 4096);
+
+            std::cout << "Virtual Address: " << addr << std::endl;
+            std::cout << "Value at Physical Address: " << std::dec << static_cast<int>(mm.readVirtualMemory(addr)) << std::endl << std::endl;
+        }
+
+        return 0;
+    } catch (const char* error) {
+        std::cerr << "[FATAL] " << error << std::endl;
+        return -1;
     }
 
-    virtualAddress = 0x0000;
-
-    int bloop[5] = {0x0485, 0x0089, 0x0a5f, 0x076e, 0x0f80};
-
-    for (auto addr : bloop) {
-        std::cout << std::showbase << std::hex;
-        std::cout << "Page Table Entry for Virtual Address " << addr << ": " << std::endl;
-        mm.printPageTableEntry(addr / 4096);
-
-        std::cout << "Virtual Address: " << addr << std::endl;
-        std::cout << "Value at Physical Address: " << std::dec << static_cast<int>(mm.readVirtualMemory(addr)) << std::endl << std::endl;
-    }
-
-    return 0;
 
 }
