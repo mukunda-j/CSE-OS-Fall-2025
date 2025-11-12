@@ -10,6 +10,9 @@ void q_push(Queue* q, Thread* t);
 Thread* q_pop(Queue* q);
 /* Add 1 tick of waiting to every thread in q (use for Ready; optionally Waiting) */
 void bump_queue_wait(Queue* q);
+// pop the thread with minimum time remaining
+Thread* q_pop_min_remaining(Queue* q);
+Thread* q_pop_min_burst(Queue* q);
 
 /* (Optional) clear queue nodes (does NOT free Thread objects themselves) */
 void q_clear_shallow(Queue* q);

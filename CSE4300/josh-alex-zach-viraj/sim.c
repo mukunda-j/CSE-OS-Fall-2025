@@ -102,31 +102,120 @@ static void random_interrupts(const InterruptConfig* cfg, CPU* cpu, Queue* waiti
     }
 }
 
+/* read an int with a prompt and basic validation */
+static int prompt_int(FILE* in, FILE* out, const char* msg, int min_allowed) {
+    int x;
+    for (;;) {
+        if (out) fprintf(out, "%s", msg);
+        int rc = fscanf(in, "%d", &x);
+        if (rc == 1 && x >= min_allowed) return x;
+        if (out) fprintf(out, "Invalid input. Please enter an integer >= %d.\n", min_allowed);
+        // clear bad token
+        int ch;
+        while ((ch = fgetc(in)) != '\n' && ch != EOF) { /* discard */ }
+        if (feof(in)) return min_allowed - 1; /* signal failure if stream closed */
+    }
+}
+
+/* Prompts user for workload:
+   - number of threads N
+   - for i in 1..N: arrival_i, burst_i
+   Adds TIDs 1..N in the order entered. */
+int workload_prompt(Queue* workload, FILE* in, FILE* out) {
+    if (!in) in = stdin;
+    if (!out) out = stdout;
+
+    q_init(workload);
+
+    int n = prompt_int(in, out, "Enter number of threads: ", 1);
+    if (n < 1) return -1;
+
+    for (int i = 1; i <= n; ++i) {
+        int arrival, burst;
+        if (out) fprintf(out, "Thread %d - enter arrival and burst (e.g. 0 5): ", i);
+        for (;;) {
+            int rc = fscanf(in, "%d %d", &arrival, &burst);
+            if (rc == 2 && arrival >= 0 && burst > 0) break;
+            if (out) fprintf(out, "Invalid. Arrival must be >= 0 and burst > 0. Try again: ");
+            int ch;
+            while ((ch = fgetc(in)) != '\n' && ch != EOF) { /* discard */ }
+            if (feof(in)) return -1;
+        }
+        workload_add(workload, /*tid*/ i, arrival, burst);
+    }
+
+    if (out) fprintf(out, "Loaded %d threads.\n\n", n);
+    return n;
+}
 
 int main(void) {
     /* build workload directly with the queue api */
     Queue workload;
     workload_init(&workload);
 
-    // large work load simulation
-    // for (int i = 1; i < 2000; i++) {
-    //     workload_add(&workload, i, rnd(0, 300), rnd(0, 30));
-    // }
-
-    workload_add(&workload, 1, 0, 5);
-    workload_add(&workload, 2, 0, 3);
-    workload_add(&workload, 3, 2, 6);
-    workload_add(&workload, 4, 4, 4);
-
     /* sim queues */
     Queue ready, waiting, finished;
     q_init(&ready);
     q_init(&waiting);
     q_init(&finished);
+    int ncores = 1;  // initial number of cores
 
-    /* cpu init and n cores */
-    CPU cpu;
-    cpu_init(&cpu, 4);
+    /* --- choose workload source --- */
+    printf("\nSelect workload mode:\n");
+    printf("  1) Preset small example\n");
+    printf("  2) Preset large randomized\n");
+    printf("  3) Manual entry\n");
+    printf("Enter choice [1 3]: ");
+
+    int choice = 0;
+    if (scanf("%d", &choice) != 1) choice = 1;
+    /* clear trailing line */
+    int ch; while ((ch = fgetc(stdin)) != '\n' && ch != EOF) {}
+
+    switch (choice) {
+        case 1: {
+            /* small preset */
+            workload_add(&workload, 1, 0, 5);
+            workload_add(&workload, 2, 0, 3);
+            workload_add(&workload, 3, 2, 6);
+            workload_add(&workload, 4, 4, 4);
+            printf("Loaded preset small workload\n\n");
+            break;
+        }
+        case 2: {
+            ncores = 6;
+            /* large randomized preset */
+            int N = 2000;
+            /* simple local rnd helper if you do not already have one */
+            srand(42);
+            for (int i = 1; i <= N; ++i) {
+                workload_add(&workload, i, rnd(0, 300), rnd(1, 30));
+            }
+            printf("Loaded preset large randomized workload with %d threads\n\n", N);
+            break;
+        }
+        case 3:
+        default: {
+            // user defined workload
+            if (workload_prompt(&workload, stdin, stdout) < 0) {
+                fprintf(stderr, "Failed to read workload\n");
+                return 1;
+            }
+            /* optional: prompt for core count */
+            ncores = 2;  /* default */
+            printf("Enter number of CPU cores (>=1): ");
+            if (scanf("%d", &ncores) != 1 || ncores < 1) {
+                fprintf(stderr, "Invalid cores, using %d.\n", ncores = 2);
+                // flush line if needed
+                int ch; while ((ch = fgetc(stdin)) != '\n' && ch != EOF) {}
+            }
+            break;
+        }
+    }
+
+    // init cpu
+    CPU cpu; cpu_init(&cpu, ncores);
+
     /* run_trace[c][t] = tid at tick t for core c, or -1 if idle */
     int **run_trace = NULL;
     int ncores_for_trace = cpu.ncores;
@@ -157,7 +246,7 @@ int main(void) {
     workload_admit_tick(&workload, &ready, SIM_TIME);
 
     // SETUP SCHEDULER
-    DispatchAlgo algo = DISP_FIFO;
+    DispatchAlgo algo = DISP_SRTCF;
     DispatchFn schedule = dispatch_get(algo);
 
     /* INTERRUPT CONFIGURATION*/

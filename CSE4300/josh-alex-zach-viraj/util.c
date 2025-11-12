@@ -32,6 +32,49 @@ Thread* q_pop(Queue* q) {
     return t;
 }
 
+static Thread* q_remove_after(Queue* q, Thread* prev) {
+    if (prev == NULL) {
+        return q_pop(q);  // remove head (uses your existing q_pop)
+    } else {
+        Thread* removed = prev->next;
+        if (!removed) return NULL;
+        prev->next = removed->next;
+        if (removed == q->rear) q->rear = prev;
+        q->size -= 1;
+        removed->next = NULL;
+        return removed;
+    }
+}
+
+/* ----- selection pops ----- */
+Thread* q_pop_min_burst(Queue* q) {
+    if (!q || q->size == 0) return NULL;
+    Thread* best_prev = NULL;
+    int best = 2147483647;
+    Thread* prev = NULL;
+    for (Thread* cur = q->front; cur; prev = cur, cur = cur->next) {
+        if (cur->burst_time < best) {
+            best = cur->burst_time;
+            best_prev = prev;
+        }
+    }
+    return q_remove_after(q, best_prev);
+}
+
+Thread* q_pop_min_remaining(Queue* q) {
+    if (!q || q->size == 0) return NULL;
+    Thread* best_prev = NULL;
+    int best = 2147483647;
+    Thread* prev = NULL;
+    for (Thread* cur = q->front; cur; prev = cur, cur = cur->next) {
+        if (cur->remaining < best) {
+            best = cur->remaining;
+            best_prev = prev;
+        }
+    }
+    return q_remove_after(q, best_prev);
+}
+
 void bump_queue_wait(Queue* q) {
     for (Thread* p = q->front; p; p = p->next) {
         p->wait_time += 1;
