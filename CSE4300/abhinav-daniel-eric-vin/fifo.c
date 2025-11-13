@@ -7,7 +7,7 @@ void fifo(struct process **FIFOQueue, int* queueptr, int globalTime){
     //rearrange for this algorithm
     //(no rearranging needed for fifo)
     //subtract from procArray[0]'s remaining time ("executing the process")
-
+    printf("Time %d: Executing %s   FIFO\n", globalTime, FIFOQueue[0]->name);
     FIFOQueue[0]->remainingTime--;
     //if remainingtime == 0:
         //set finishtime
