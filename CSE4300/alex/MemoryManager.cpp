@@ -105,9 +105,10 @@ void MemoryManager:: _handlePageFault(int virtualPageNumber){
 
     if (freeFrame == -1) {
         entry.pageFrameNum = _replacePage();
-        _readPageFromDisk(virtualPageNumber, entry.pageFrameNum);
     } else
         entry.pageFrameNum = freeFrame;
+
+    _readPageFromDisk(virtualPageNumber, entry.pageFrameNum);
 
     freeFrames[entry.pageFrameNum] = false;
 
